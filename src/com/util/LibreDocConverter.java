@@ -3,25 +3,30 @@ package com.util;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Date;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.Writer;
+import java.util.Map;
 
-import org.artofsolving.jodconverter.OfficeDocumentConverter;
-import org.artofsolving.jodconverter.office.DefaultOfficeManagerConfiguration;
-import org.artofsolving.jodconverter.office.OfficeManager;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.swing.Box.Filler;
 
-/**
- * 使用LibreOffice转换txt、doc、docx、xls、xlsx、ppt、pptx、pdf
- * @author wanggang
- */
-public class DocConverter {
-	
-	private String environment;// 环境1：windows,2:linux(涉及pdf2swf路径问题)
+import com.artofsolving.jodconverter.DocumentConverter;
+import com.artofsolving.jodconverter.openoffice.connection.OpenOfficeConnection;
+import com.artofsolving.jodconverter.openoffice.connection.SocketOpenOfficeConnection;
+import com.artofsolving.jodconverter.openoffice.converter.OpenOfficeDocumentConverter;
+
+public class LibreDocConverter {
+	private static final int environment = 1;// 环境1：windows,2:linux(涉及pdf2swf路径问题)
 	private String fileString;
 	private String outputPath = "";// 输入路径，如果不设置就输出在默认位置
 	private String fileName;
@@ -31,16 +36,12 @@ public class DocConverter {
 	private File odtFile;
 	private String txtName;
 	private String extName;
-	private String libreOfficePath = "D:/ProgramFiles/LibreOffice5233";
-	//private String libreOfficePath = "/opt/libreoffice5.2";
-	private String swftoolsPath = "D:/ProgramFiles/SWFTools";
-	//private String swftoolsPath = "/usr/swftools/bin/";
 
-	public DocConverter(String fileString) throws Exception {
+	public LibreDocConverter(String fileString) throws Exception {
 		ini(fileString);
 	}
 
-	public DocConverter() {
+	public LibreDocConverter() {
 
 	}
 
@@ -70,7 +71,6 @@ public class DocConverter {
 			 * String s = fileString.substring(fileString.lastIndexOf("/") + 1,
 			 * fileString.lastIndexOf(".")); fileName = fileName + "/" + s;
 			 */
-			initEnvironment();
 			this.fileString = fileString;
 			fileName = fileString.substring(0, fileString.lastIndexOf("."));
 			docFile = new File(fileString);
@@ -113,27 +113,26 @@ public class DocConverter {
 //		String command = OpenOffice_HOME
 //				+ "program\\soffice.exe -headless -accept=\"socket,host=127.0.0.1,port=8100;urp;\"";
 //		Process pro = Runtime.getRuntime().exec(command);
-		if (odtFile.exists()) {
+		if (docFile.exists()) {
 			if (!pdfFile.exists()) {
-				//OpenOfficeConnection connection = new SocketOpenOfficeConnection(8100);
-				DefaultOfficeManagerConfiguration configuration = new DefaultOfficeManagerConfiguration();
-				OfficeManager officeManager = null;
+				OpenOfficeConnection connection = new SocketOpenOfficeConnection(
+						8100);
 				try {
-					configuration.setOfficeHome(new File(libreOfficePath));
-					configuration.setPortNumber(8100);
-					// 设置任务执行超时为50分钟，这里就是导致转换超时的配置
-					//configuration.setTaskExecutionTimeout(1000 * 60 * 50L);
-					// 设置任务队列超时为24小时
-					//configuration.setTaskQueueTimeout(1000 * 60 * 60 * 24L);
-					officeManager = configuration.buildOfficeManager();
-					officeManager.start();
-					
-					OfficeDocumentConverter converter = new OfficeDocumentConverter(officeManager);
+					connection.connect();
+					DocumentConverter converter = new OpenOfficeDocumentConverter(
+							connection);
 					// DocumentConverter converter = new
 					// MyOpenOfficeDocumentConverter(connection);
-					converter.convert(odtFile, pdfFile);
+					converter.convert(docFile, pdfFile);
 					// close the connection
-					System.out.println("****pdf转换成功，PDF输出：" + pdfFile.getPath() + "****");
+					connection.disconnect();
+					System.out.println("****pdf转换成功，PDF输出：" + pdfFile.getPath()
+							+ "****");
+				} catch (java.net.ConnectException e) {
+					// ToDo Auto-generated catch block
+					e.printStackTrace();
+					System.out.println("****swf转换异常，openoffice服务未启动！****");
+					throw e;
 				} catch (com.artofsolving.jodconverter.openoffice.connection.OpenOfficeException e) {
 					e.printStackTrace();
 					System.out.println("****swf转换器异常，读取转换文件失败****");
@@ -141,8 +140,6 @@ public class DocConverter {
 				} catch (Exception e) {
 					e.printStackTrace();
 					throw e;
-				} finally {
-					if(null!=officeManager) officeManager.stop();
 				}
 			} else {
 				System.out.println("****已经转换为pdf，不需要再进行转化****");
@@ -187,35 +184,26 @@ public class DocConverter {
 //		String command = OpenOffice_HOME
 //				+ "program\\soffice.exe -headless -accept=\"socket,host=127.0.0.1,port=8100;urp;\"";
 //		Process pro = Runtime.getRuntime().exec(command);
-		System.out.println("libreOffice开始转换..............................");
-		Long startTime = new Date().getTime();
-		
 		if (docFile.exists()) {
 			if (!pdfFile.exists()) {
-				DefaultOfficeManagerConfiguration configuration = new DefaultOfficeManagerConfiguration();
-				OfficeManager officeManager = null;
+				OpenOfficeConnection connection = new SocketOpenOfficeConnection(
+						"127.0.0.1", 8100);
 				try {
-					configuration.setOfficeHome(new File(libreOfficePath));
-					configuration.setPortNumber(8100);
-					// 设置任务执行超时为50分钟，这里就是导致转换超时的配置
-					//configuration.setTaskExecutionTimeout(1000 * 60 * 50L);
-					// 设置任务队列超时为24小时
-					//configuration.setTaskQueueTimeout(1000 * 60 * 60 * 24L);
-					officeManager = configuration.buildOfficeManager();
-					officeManager.start();
-					System.out.println("...start 开始喽 .....");
-					
-					OfficeDocumentConverter converter = new OfficeDocumentConverter(officeManager);
+					connection.connect();
+					DocumentConverter converter = new OpenOfficeDocumentConverter(
+							connection);
 					// DocumentConverter converter = new
 					// MyOpenOfficeDocumentConverter(connection);
-					//converter.convert(inputFile, outputFile);
 					converter.convert(docFile, pdfFile);
 					// close the connection
-					System.out.println("转换结束，累死啦。。。。。");
-					long endTime = new Date().getTime();
-					long time = endTime - startTime;
-					System.out.println("libreOffice转换所用时间为："+time);
-					System.out.println("****pdf转换成功，PDF输出：" + pdfFile + "****");
+					connection.disconnect();
+					System.out.println("****pdf转换成功，PDF输出：" + pdfFile.getPath()
+							+ "****");
+				} catch (java.net.ConnectException e) {
+					// ToDo Auto-generated catch block
+					e.printStackTrace();
+					System.out.println("****swf转换异常，openoffice服务未启动！****");
+					throw e;
 				} catch (com.artofsolving.jodconverter.openoffice.connection.OpenOfficeException e) {
 					e.printStackTrace();
 					System.out.println("****swf转换器异常，读取转换文件失败****");
@@ -223,8 +211,6 @@ public class DocConverter {
 				} catch (Exception e) {
 					e.printStackTrace();
 					throw e;
-				} finally {
-					if(null!=officeManager) officeManager.stop();
 				}
 			} else {
 				System.out.println("****已经转换为pdf，不需要再进行转化****");
@@ -251,12 +237,12 @@ public class DocConverter {
 		Runtime r = Runtime.getRuntime();
 		if (!swfFile.exists()) {
 			if (pdfFile.exists()) {
-				if ("1".equals(environment))// windows环境处理
+				if (environment == 1)// windows环境处理
 				{
 					try {
 						// 这里根据SWFTools安装路径需要进行相应更改
 
-						Process p = r.exec(swftoolsPath + "/pdf2swf.exe "
+						Process p = r.exec("D:/ProgramFiles/SWFTools/pdf2swf.exe "
 								+ pdfFile.getPath() + " -o "
 								+ swfFile.getPath() + " -T 9");
 
@@ -272,10 +258,11 @@ public class DocConverter {
 						e.printStackTrace();
 						throw e;
 					}
-				} else if ("2".equals(environment))// linux环境处理
+				} else if (environment == 2)// linux环境处理
 				{
 					try {
-						Process p = r.exec(swftoolsPath+"/pdf2swf " + pdfFile.getPath() + " -o " + swfFile.getPath() + " -T 9 -Q 500");
+						Process p = r.exec("pdf2swf " + pdfFile.getPath()
+								+ " -o " + swfFile.getPath() + " -T 9");
 						System.out.print(loadStream(p.getInputStream()));
 						System.err.print(loadStream(p.getErrorStream()));
 						System.err.println("****swf转换成功，文件输出："
@@ -317,19 +304,15 @@ public class DocConverter {
 			return true;
 		}
 
-		if ("1".equals(environment)) {
+		if (environment == 1) {
 			System.out.println("****swf转换器开始工作，当前设置运行环境windows****");
 		} else {
 			System.out.println("****swf转换器开始工作，当前设置运行环境linux****");
 		}
 
 		try {
-			//如果是txt
-			if(!(odtFile==null)) {
-				odt2pdf();
-			} else {
-				doc2pdf();
-			}
+//			odt2pdf();
+			doc2pdf();
 			pdf2swf();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -371,24 +354,9 @@ public class DocConverter {
 			}
 		}
 	}
-	
-	/**
-	 * 判断运行环境 windows or linux
-	 * 环境1：windows,2:linux(涉及pdf2swf路径问题)
-	 */
-	public void initEnvironment() {
-		
-		String osName = System.getProperties().getProperty("os.name");
-		
-		if(osName.toLowerCase().contains("windows")) {
-			environment = "1";
-		} else {
-			environment = "2";
-		}
-	}
-	
+
 	public static void main(String s[]) {
-		DocConverter d;
+		LibreDocConverter d;
 
 		String fileName = "D:/upload/3.pdf";
 
@@ -396,7 +364,7 @@ public class DocConverter {
 			// if(fileName.contains(".pdf")) {
 			// d = new DocConverter();
 			// } else {
-			d = new DocConverter(fileName);
+			d = new LibreDocConverter(fileName);
 			// }
 			d.conver();
 		} catch (Exception e) {
