@@ -11,15 +11,20 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Date;
 
+import org.apache.log4j.Logger;
 import org.artofsolving.jodconverter.OfficeDocumentConverter;
 import org.artofsolving.jodconverter.office.DefaultOfficeManagerConfiguration;
+import org.artofsolving.jodconverter.office.ExternalOfficeManagerConfiguration;
 import org.artofsolving.jodconverter.office.OfficeManager;
 
 /**
  * 使用LibreOffice转换txt、doc、docx、xls、xlsx、ppt、pptx、pdf
+ * 如果文件名是乱码，使用UUID重新生成一个文件名，并保留原文件名
  * @author wanggang
  */
 public class DocConverter {
+
+	public static Logger log = Logger.getLogger(DocConverter.class);
 	
 	private String environment;// 环境1：windows,2:linux(涉及pdf2swf路径问题)
 	private String fileString;
@@ -49,7 +54,6 @@ public class DocConverter {
 	 */
 	public void setFile(String fileString) throws Exception {
 		ini(fileString);
-
 	}
 
 	/*
@@ -72,11 +76,16 @@ public class DocConverter {
 			 */
 			initEnvironment();
 			this.fileString = fileString;
+			
+			//Linux下文档转UTF-8编码
+//			Runtime r = Runtime.getRuntime();
+//			Process p = r.exec("/usr/local/enca/bin/enca -L zh_CN -x UTF-8  "+ this.fileString);
+//			loadStream(p.getInputStream());
+//			p.destroy();
+//			log.info("---------------转utf8-----------");
+			
 			fileName = fileString.substring(0, fileString.lastIndexOf("."));
 			docFile = new File(fileString);
-			pdfFile = new File(fileName + ".pdf");
-			swfFile = new File(fileName + ".swf");
-			odtFile = new File(fileName + ".odt");
 			// 用于处理TXT文档转化为PDF格式乱码,获取上传文件的名称（不需要后面的格式）
 			String txtName = fileString.substring(fileString.lastIndexOf("."));
 			System.out.println("txtName是：" + txtName);
@@ -91,9 +100,8 @@ public class DocConverter {
 			} else if (txtName.equals(".pdf") || txtName.equals(".PDF")) {
 				// pdfFile = new File(fileName + ".pdf");
 				// this.copyFile(docFile, pdfFile);
-				pdf2swf();
-				swfFile = new File(fileName + ".swf");
-				return;
+				pdfFile = new File(fileName + ".pdf");
+				this.copyFile(docFile, pdfFile);
 			} else {
 				pdfFile = new File(fileName + ".pdf");
 			}
@@ -126,14 +134,53 @@ public class DocConverter {
 					// 设置任务队列超时为24小时
 					//configuration.setTaskQueueTimeout(1000 * 60 * 60 * 24L);
 					officeManager = configuration.buildOfficeManager();
+					
+					try {
+						log.info("尝试连接已启动的服务...");   
+			            ExternalOfficeManagerConfiguration externalProcessOfficeManager = new ExternalOfficeManagerConfiguration();  
+			            externalProcessOfficeManager.setConnectOnStart(true);  
+			            externalProcessOfficeManager.setPortNumber(8100);  
+			            officeManager = externalProcessOfficeManager.buildOfficeManager();
+			            officeManager.start();
+			            
+			            try {
+				            log.info("office转换服务已存在,连接成功, 开始转换odt文档 .." 
+				            			+ odtFile.getAbsolutePath() +" ..."+ pdfFile.getAbsolutePath());   
+				            OfficeDocumentConverter converter = new OfficeDocumentConverter(officeManager);	
+							converter.convert(odtFile, pdfFile);  
+							System.out.println("---odt转换文档成功---");
+			            } catch(Exception e) {
+			            	e.printStackTrace();
+				       		log.error("office 转换文档失败 , 忽略当前odt文档");
+				       		return;
+			            }
+			            officeManager.stop();
+			            return;
+					} catch(Exception ex) {
+						ex.printStackTrace();
+						log.info("没有已经启动的服务...");
+					}
+					
+					log.info("创建并连接新服务...");  
+					DefaultOfficeManagerConfiguration config = new DefaultOfficeManagerConfiguration();  
+					config.setOfficeHome(new File(libreOfficePath));  
+					config.setPortNumbers(8100);  
+					//configuration.setTaskExecutionTimeout(1000 * 60 * 5L);  
+					//configuration.setTaskQueueTimeout(1000 * 60 * 60 * 24L);  
+					
+					officeManager = configuration.buildOfficeManager();  
 					officeManager.start();
 					
+					log.info("office转换服务启动成功! , 开始转换文件odt .." 
+								+ odtFile.getAbsolutePath() +" ..."+ pdfFile.getAbsolutePath());
 					OfficeDocumentConverter converter = new OfficeDocumentConverter(officeManager);
 					// DocumentConverter converter = new
 					// MyOpenOfficeDocumentConverter(connection);
 					converter.convert(odtFile, pdfFile);
 					// close the connection
 					System.out.println("****pdf转换成功，PDF输出：" + pdfFile.getPath() + "****");
+					officeManager.stop();
+			        return;
 				} catch (com.artofsolving.jodconverter.openoffice.connection.OpenOfficeException e) {
 					e.printStackTrace();
 					System.out.println("****swf转换器异常，读取转换文件失败****");
@@ -202,9 +249,45 @@ public class DocConverter {
 					// 设置任务队列超时为24小时
 					//configuration.setTaskQueueTimeout(1000 * 60 * 60 * 24L);
 					officeManager = configuration.buildOfficeManager();
-					officeManager.start();
+					
+					try {
+						log.info("尝试连接已启动的服务...");   
+			            ExternalOfficeManagerConfiguration externalProcessOfficeManager = new ExternalOfficeManagerConfiguration();  
+			            externalProcessOfficeManager.setConnectOnStart(true);  
+			            externalProcessOfficeManager.setPortNumber(8100);  
+			            officeManager = externalProcessOfficeManager.buildOfficeManager();  
+			            officeManager.start();
+			            
+			            try {
+				            log.info("office转换服务已存在,连接成功, 开始转换doc文档--- .."+ docFile.getAbsolutePath() +" ..."+ pdfFile.getAbsolutePath());
+				            OfficeDocumentConverter converter = new OfficeDocumentConverter(officeManager);
+							converter.convert(docFile, pdfFile);
+							System.out.println("---doc转换文档成功---");
+			            } catch(Exception e) {
+			            	e.printStackTrace();
+				       		log.error("office 转换doc文档失败, 跳出该转码-- ");
+				       		return;
+			            }
+			            officeManager.stop();
+			            return;
+					} catch(Exception ex) {
+						ex.printStackTrace();  
+						log.info("没有已启动的服务...");
+					}
+		            
+					log.info("创建并连接新服务...");  
+			        DefaultOfficeManagerConfiguration config = new DefaultOfficeManagerConfiguration();  
+			        config.setOfficeHome(new File(libreOfficePath));  
+			        config.setPortNumbers(8100);  
+			        config.setTaskExecutionTimeout(1000 * 60 * 5L);  
+			        config.setTaskQueueTimeout(1000 * 60 * 60 * 1L);  
+			    
+			        officeManager = config.buildOfficeManager();  
+			        officeManager.start();
 					System.out.println("...start 开始喽 .....");
 					
+					log.info("office转换服务启动成功! , 开始转换doc文件--- .." 
+							+ docFile.getAbsolutePath() +" ..."+ pdfFile.getAbsolutePath());
 					OfficeDocumentConverter converter = new OfficeDocumentConverter(officeManager);
 					// DocumentConverter converter = new
 					// MyOpenOfficeDocumentConverter(connection);
@@ -216,6 +299,8 @@ public class DocConverter {
 					long time = endTime - startTime;
 					System.out.println("libreOffice转换所用时间为："+time);
 					System.out.println("****pdf转换成功，PDF输出：" + pdfFile + "****");
+					officeManager.stop(); 
+			        return;
 				} catch (com.artofsolving.jodconverter.openoffice.connection.OpenOfficeException e) {
 					e.printStackTrace();
 					System.out.println("****swf转换器异常，读取转换文件失败****");
@@ -237,7 +322,6 @@ public class DocConverter {
 	/*
 	 * 转换成swf
 	 */
-
 	private void pdf2swf() throws Exception {
 //		// 这里是OpenOffice的安装目录, 在我的项目中,为了便于拓展接口,没有直接写成这个样子,但是这样是绝对没问题的
 //		String OpenOffice_HOME = "D:\\ProgramFiles\\OpenOffice 4";
@@ -311,18 +395,18 @@ public class DocConverter {
 	 * 转换主方法
 	 */
 	public boolean conver() {
-
+		
 		if (swfFile.exists()) {
 			System.out.println("****swf转换器开始工作，该文件已经转换为swf****");
 			return true;
 		}
-
+		
 		if ("1".equals(environment)) {
 			System.out.println("****swf转换器开始工作，当前设置运行环境windows****");
 		} else {
 			System.out.println("****swf转换器开始工作，当前设置运行环境linux****");
 		}
-
+		
 		try {
 			//如果是txt
 			if(!(odtFile==null)) {
@@ -335,14 +419,14 @@ public class DocConverter {
 			e.printStackTrace();
 			return false;
 		}
-
+		
 		if (swfFile.exists()) {
 			return true;
 		} else {
 			return false;
 		}
 	}
-
+	
 	/*
 	 * 返回文件路径 @param s
 	 */
@@ -355,7 +439,7 @@ public class DocConverter {
 			return "";
 		}
 	}
-
+	
 	/*
 	 * 设置输出路径
 	 */

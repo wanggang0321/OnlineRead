@@ -3,29 +3,25 @@ package com.util;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.io.Writer;
-import java.util.Map;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.swing.Box.Filler;
 
 import com.artofsolving.jodconverter.DocumentConverter;
 import com.artofsolving.jodconverter.openoffice.connection.OpenOfficeConnection;
 import com.artofsolving.jodconverter.openoffice.connection.SocketOpenOfficeConnection;
 import com.artofsolving.jodconverter.openoffice.converter.OpenOfficeDocumentConverter;
 
+/**
+ * 使用OpenOffice转换txt、doc、docx、xls、xlsx、ppt、pptx、pdf
+ * 如果文件名是乱码，使用UUID重新生成一个文件名，并保留原文件名
+ * @author wanggang
+ */
 public class LibreDocConverter {
+	
 	private static final int environment = 1;// 环境1：windows,2:linux(涉及pdf2swf路径问题)
 	private String fileString;
 	private String outputPath = "";// 输入路径，如果不设置就输出在默认位置
