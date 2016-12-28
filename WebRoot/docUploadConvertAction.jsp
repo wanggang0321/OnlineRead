@@ -5,6 +5,7 @@
 <%@page import="com.oreilly.servlet.MultipartRequest"%>
 <%@page import="com.oreilly.servlet.multipart.DefaultFileRenamePolicy"%>
 <%@page import="com.util.DocConverter"%>
+<%@page import="com.util.LibreDocConverter"%>
 <%
 	//文件上传采用cos组件上传，可更换为commons-fileupload上传，文件上传后，保存在upload文件夹
 	//获取文件上传路径
@@ -39,7 +40,9 @@
 			System.out.println("converfilename:" + converfilename); 
 		
 			//调用转换类DocConverter,并将需要转换的文件传递给该类的构造方法
-			DocConverter d = new DocConverter(converfilename);
+			LibreDocConverter d = new LibreDocConverter(converfilename);
+			//DocConverter d = new DocConverter(converfilename);
+			
 			//调用conver方法开始转换，先执行doc2pdf()将office文件转换为pdf;再执行pdf2swf()将pdf转换为swf;
 			d.conver();
 			//调用getswfPath()方法，打印转换后的swf文件路径
